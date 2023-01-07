@@ -5,26 +5,26 @@ var instance = new TestObject();
 var instanceType = typeof(TestObject);
 var propertyName = nameof(TestObject.TestProperty);
 
-var setterDelegate = ObjectPropertyHelper.Create(instanceType).Setter<string>(propertyName);
+var propertyHelper = ObjectPropertyHelper.Create(instanceType);
 
-var getterDelegate = ObjectPropertyHelper.Create(instanceType).Getter<string>(propertyName);
+var setterDelegate = propertyHelper.Setter(propertyName);
+
+var getterDelegate = propertyHelper.Getter(propertyName);
 
 setterDelegate(instance, "Test Name");
 
-Console.WriteLine(getterDelegate(instance));
+Console.WriteLine($"-------------- Getter : {getterDelegate(instance)}");
 
-var doDelegate = ObjectMethodHelper.Create(instanceType).ParameterlessInvoker<int>("Do");
+var methodHelper = ObjectMethodHelper.Create(instanceType);
 
-Console.WriteLine(doDelegate(instance));
+var doDelegate = methodHelper.GetParameterlessInvoker("Do");
 
-var do1Delegate = ObjectMethodHelper.Create(instanceType).OneParameterInvoker<string, string>("Do");
+Console.WriteLine($"Parameterless Invoker : {doDelegate(instance)}");
 
-Console.WriteLine(do1Delegate(instance, "key"));
+var do1Delegate = methodHelper.GetOneParameterInvoker("Do", typeof(string));
 
-var do2Delegate = ObjectMethodHelper.Create(instanceType).TwoParameterInvoker<string, int, string>("Do");
+Console.WriteLine($"One Parameter Invoker : {do1Delegate(instance, "key")}");
 
-Console.WriteLine(do2Delegate(instance, "key", 1));
+var do2Delegate = methodHelper.GetTwoParameterInvoker("Do", typeof(string), typeof(int));
 
-var method = instanceType.GetMethod("Do", Array.Empty<Type>())!;
-
-Console.WriteLine(method.Invoke(instance, null));
+Console.WriteLine($"Two Parameter Invoker : {do2Delegate(instance, "key", 1)}");

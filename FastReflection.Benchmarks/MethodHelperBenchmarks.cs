@@ -15,8 +15,7 @@ public class MethodHelperBenchmarks
 		var instance = new TestObject();
 		var instanceType = typeof(TestObject);
 
-		var invoker = ObjectMethodHelper.Create(instanceType)
-			.ParameterlessInvoker<int>("Do");
+		var invoker = ObjectMethodHelper.Create(instanceType).GetParameterlessInvoker("Do");
 
 		for (int i = 0; i < 1000; i++)
 		{

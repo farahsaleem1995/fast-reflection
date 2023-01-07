@@ -3,16 +3,23 @@ using System.Reflection;
 
 namespace FastReflection.Helpers;
 
-public class PropertyHelper<TValue>
+public class PropertyHelper
 {
+	public const string InvalidDelegateErrorMessage = "Property '{0}' cannot be activated for value of '{1}' type.";
+
+	private const string InvalidPropertyErrorMessage =
+		"Property '{0}' of type'{1}' could not be found, or it's not public or declared, or has no public {2}.";
+
 	private static readonly MethodInfo _callPropertyGetterOpenGenericMethod =
-		typeof(PropertyHelper<TValue>).GetTypeInfo().GetDeclaredMethod(nameof(CallPropertyGetter))!;
+		typeof(PropertyHelper).GetTypeInfo().GetDeclaredMethod(nameof(CallPropertyGetter))!;
 
 	private static readonly MethodInfo _callPropertySetterOpenGenericMethod =
-		typeof(PropertyHelper<TValue>).GetTypeInfo().GetDeclaredMethod(nameof(CallPropertySetter))!;
+		typeof(PropertyHelper).GetTypeInfo().GetDeclaredMethod(nameof(CallPropertySetter))!;
 
 	private readonly Type _declaringType;
 	private readonly string _propertyName;
+	private PropertyGetter? _getterDelegate;
+	private PropertySetter? _setterDelegate;
 
 	public PropertyHelper(Type declaringType, string propertyName)
 	{
@@ -20,51 +27,67 @@ public class PropertyHelper<TValue>
 		_propertyName = propertyName;
 	}
 
-	public PropertyGetter<TValue> Getter
+	public PropertyGetter Getter
 	{
 		get
 		{
-			var propertyInfo = GetPropertyInfo(_declaringType, _propertyName);
-
-			if (propertyInfo.GetMethod?.IsPublic == false)
+			if (_getterDelegate == null)
 			{
-				throw new InvalidOperationException();
+				var propertyInfo = GetPropertyInfo(_declaringType, _propertyName, PropertyType.Getter);
+
+				_getterDelegate = MakeFastPropertyGetter(propertyInfo);
 			}
 
-			return MakeFastPropertyGetter(propertyInfo);
+			return _getterDelegate;
 		}
 	}
 
-	public PropertySetter<TValue> Setter
+	public PropertySetter Setter
 	{
 		get
 		{
-			var propertyInfo = GetPropertyInfo(_declaringType, _propertyName);
-
-			if (propertyInfo.SetMethod?.IsPublic == false)
+			if (_setterDelegate == null)
 			{
-				throw new InvalidOperationException();
+				var propertyInfo = GetPropertyInfo(_declaringType, _propertyName, PropertyType.Setter);
+
+				_setterDelegate = MakeFastPropertySetter(propertyInfo);
 			}
 
-			return MakeFastPropertySetter(propertyInfo);
+			return _setterDelegate;
 		}
 	}
 
-	private static PropertyInfo GetPropertyInfo(Type declaringType, string propertyMethod)
+	private static PropertyInfo GetPropertyInfo(Type declaringType, string propertyName, PropertyType propertyType)
 	{
 		var bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
 
-		var propertyInfo = declaringType.GetProperty(propertyMethod, bindingFlags);
+		var propertyInfo = declaringType.GetProperty(propertyName, bindingFlags);
 
-		return propertyInfo ?? throw new InvalidOperationException();
+		if (propertyInfo == null || !IsPropertyHasPublicAccessor(propertyInfo, propertyType))
+		{
+			throw new InvalidOperationException(
+				string.Format(InvalidPropertyErrorMessage, propertyName, declaringType, propertyType));
+		}
+
+		return propertyInfo;
 	}
 
-	private static PropertyGetter<TValue> MakeFastPropertyGetter(PropertyInfo propertyInfo)
+	private static bool IsPropertyHasPublicAccessor(PropertyInfo propertyInfo, PropertyType propertyType)
+	{
+		return propertyType switch
+		{
+			PropertyType.Getter => propertyInfo.GetMethod?.IsPublic == true,
+			PropertyType.Setter => propertyInfo.SetMethod?.IsPublic == true,
+			_ => throw new NotImplementedException(),
+		};
+	}
+
+	private static PropertyGetter MakeFastPropertyGetter(PropertyInfo propertyInfo)
 	{
 		return TryMakeFastProperty(propertyInfo, () => TryMakeFastPropertyGetter(propertyInfo));
 	}
 
-	private static PropertyGetter<TValue> TryMakeFastPropertyGetter(PropertyInfo propertyInfo)
+	private static PropertyGetter TryMakeFastPropertyGetter(PropertyInfo propertyInfo)
 	{
 		var propertyGetMethod = propertyInfo.GetMethod!;
 
@@ -74,26 +97,27 @@ public class PropertyHelper<TValue>
 		var delegateType = typeof(Func<,>).MakeGenericType(typeInput, typeOutput);
 		var propertyGetterDelegate = propertyGetMethod.CreateDelegate(delegateType);
 
-		var wrapperDelegateMethod = _callPropertyGetterOpenGenericMethod.MakeGenericMethod(typeInput);
+		var wrapperDelegateMethod = _callPropertyGetterOpenGenericMethod
+			.MakeGenericMethod(typeInput, typeOutput);
 
-		var accessorDelegate = wrapperDelegateMethod.CreateDelegate(typeof(PropertyGetter<TValue>),
+		var accessorDelegate = wrapperDelegateMethod.CreateDelegate(typeof(PropertyGetter),
 			propertyGetterDelegate);
 
-		return (PropertyGetter<TValue>)accessorDelegate;
+		return (PropertyGetter)accessorDelegate;
 	}
 
-	private static TValue CallPropertyGetter<TDecalringType>(
+	private static object CallPropertyGetter<TDecalringType, TValue>(
 		Func<TDecalringType, TValue> deleg, object target)
 	{
 		return deleg((TDecalringType)target)!;
 	}
 
-	private static PropertySetter<TValue> MakeFastPropertySetter(PropertyInfo propertyInfo)
+	private static PropertySetter MakeFastPropertySetter(PropertyInfo propertyInfo)
 	{
 		return TryMakeFastProperty(propertyInfo, () => TryMakeFastPropertySetter(propertyInfo));
 	}
 
-	private static PropertySetter<TValue> TryMakeFastPropertySetter(PropertyInfo propertyInfo)
+	private static PropertySetter TryMakeFastPropertySetter(PropertyInfo propertyInfo)
 	{
 		var setMethod = propertyInfo.SetMethod!;
 		var parameters = setMethod.GetParameters();
@@ -105,15 +129,15 @@ public class PropertyHelper<TValue>
 			.MakeGenericType(typeInput, parameterType));
 
 		var callPropertySetterClosedGenericMethod = _callPropertySetterOpenGenericMethod
-			.MakeGenericMethod(typeInput);
+			.MakeGenericMethod(typeInput, parameterType);
 
 		var callPropertySetterDelegate = callPropertySetterClosedGenericMethod.CreateDelegate(
-			typeof(PropertySetter<TValue>), propertySetterAsAction);
+			typeof(PropertySetter), propertySetterAsAction);
 
-		return (PropertySetter<TValue>)callPropertySetterDelegate;
+		return (PropertySetter)callPropertySetterDelegate;
 	}
 
-	private static void CallPropertySetter<TDecalringType>(
+	private static void CallPropertySetter<TDecalringType, TValue>(
 		Action<TDecalringType, TValue> setter, object target, object value)
 	{
 		setter((TDecalringType)target, (TValue)value);
@@ -127,8 +151,14 @@ public class PropertyHelper<TValue>
 		}
 		catch (Exception e)
 		{
-			throw new InvalidOperationException(string.Format(
-				PropertyDelegate.InvalidDelegateErrorMessage, propertyInfo.Name, typeof(TProperty)), e);
+			throw new InvalidOperationException(
+				string.Format(InvalidDelegateErrorMessage, propertyInfo.Name, typeof(TProperty)), e);
 		}
+	}
+
+	private enum PropertyType
+	{
+		Getter,
+		Setter,
 	}
 }

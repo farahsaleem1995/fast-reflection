@@ -5,7 +5,7 @@ namespace FastReflection.Helpers;
 public class ObjectPropertyHelper
 {
 	private readonly Type _objectType;
-	private readonly Dictionary<string, PropertyDelegate> _propertyDelegates = new();
+	private readonly Dictionary<string, PropertyHelper> _properties = new();
 
 	private ObjectPropertyHelper(Type objectType)
 	{
@@ -17,31 +17,29 @@ public class ObjectPropertyHelper
 		return new ObjectPropertyHelper(objectType);
 	}
 
-	public PropertyGetter<TValue> Getter<TValue>(string propertyName)
+	public PropertyGetter Getter(string propertyName)
 	{
-		var cacheKey = $"Getter_{propertyName}";
+		var helper = GetPropertyHelper(propertyName);
 
-		if (!_propertyDelegates.ContainsKey(cacheKey))
-		{
-			var helper = new PropertyHelper<TValue>(_objectType, propertyName);
-
-			_propertyDelegates.Add(cacheKey, new(helper.Getter));
-		}
-
-		return _propertyDelegates[cacheKey].Getter<TValue>();
+		return helper.Getter;
 	}
 
-	public PropertySetter<TValue> Setter<TValue>(string propertyName)
+	public PropertySetter Setter(string propertyName)
 	{
-		var cacheKey = $"Setter_{propertyName}";
+		var helper = GetPropertyHelper(propertyName);
 
-		if (!_propertyDelegates.ContainsKey(cacheKey))
+		return helper.Setter;
+	}
+
+	private PropertyHelper GetPropertyHelper(string propertyName)
+	{
+		if (!_properties.ContainsKey(propertyName))
 		{
-			var helper = new PropertyHelper<TValue>(_objectType, propertyName);
+			var helper = new PropertyHelper(_objectType, propertyName);
 
-			_propertyDelegates.Add(cacheKey, new(helper.Setter));
+			_properties.Add(propertyName, helper);
 		}
 
-		return _propertyDelegates[cacheKey].Setter<TValue>();
+		return _properties[propertyName];
 	}
 }

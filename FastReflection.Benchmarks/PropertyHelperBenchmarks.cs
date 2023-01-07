@@ -9,8 +9,6 @@ namespace FastReflection.Benchmarks;
 [RankColumn]
 public class PropertyHelperBenchmarks
 {
-	private readonly List<object> _results = new();
-
 	[Benchmark]
 	public void DelegateGetter()
 	{
@@ -19,14 +17,14 @@ public class PropertyHelperBenchmarks
 		var propertyName = nameof(TestObject.TestProperty);
 
 		var helper = ObjectPropertyHelper.Create(instanceType);
-		var setter = helper.Setter<string>(propertyName);
-		var getter = helper.Getter<string>(propertyName);
+		var setter = helper.Setter(propertyName);
+		var getter = helper.Getter(propertyName);
 
 		for (int i = 0; i < 1000; i++)
 		{
 			setter(instance, "Test Name");
 
-			_results.Add(getter(instance));
+			_ = getter(instance);
 		}
 	}
 
@@ -43,7 +41,7 @@ public class PropertyHelperBenchmarks
 
 			property.SetValue(instance, "Test Name");
 
-			_results.Add(property.GetValue(instance, null)!);
+			_ = property.GetValue(instance, null)!;
 		}
 	}
 }

@@ -4,7 +4,7 @@ namespace FastReflection.Helpers;
 
 public class ObjectMethodHelper
 {
-	private readonly Dictionary<string, MethodDelegate> _methodDelgates = new();
+	private readonly Dictionary<string, MethodHelper> _methods = new();
 	private readonly Type _objectType;
 
 	public ObjectMethodHelper(Type objectType)
@@ -12,25 +12,25 @@ public class ObjectMethodHelper
 		_objectType = objectType;
 	}
 
-	public ParameterlessMethodInvoker<TResult> ParameterlessInvoker<TResult>(string methodName)
+	public ParameterlessMethodInvoker GetParameterlessInvoker(string methodName)
 	{
-		var methodDelegate = CreateMethodHelpers<TResult>(methodName, Array.Empty<Type>());
+		var helper = CreateMethodHelpers(methodName, Array.Empty<Type>());
 
-		return methodDelegate.ParameterlessInvoker<TResult>();
+		return (ParameterlessMethodInvoker)helper.Invoker;
 	}
 
-	public OneParameterMethodInvoker<TResult> OneParameterInvoker<TArg1, TResult>(string methodName)
+	public OneParameterMethodInvoker GetOneParameterInvoker(string methodName, Type arg1)
 	{
-		var method = CreateMethodHelpers<TResult>(methodName, new[] { typeof(TArg1) });
+		var helper = CreateMethodHelpers(methodName, new[] { arg1 });
 
-		return method.OneParameterInvoker<TResult>();
+		return (OneParameterMethodInvoker)helper.Invoker;
 	}
 
-	public TwoParameterMethodInvoker<TResult> TwoParameterInvoker<TArg1, TArg2, TResult>(string methodName)
+	public TwoParameterMethodInvoker GetTwoParameterInvoker(string methodName, Type arg1, Type arg2)
 	{
-		var method = CreateMethodHelpers<TResult>(methodName, new[] { typeof(TArg1), typeof(TArg2) });
+		var helper = CreateMethodHelpers(methodName, new[] { arg1, arg2 });
 
-		return method.TwoParameterInvoker<TResult>();
+		return (TwoParameterMethodInvoker)helper.Invoker;
 	}
 
 	public static ObjectMethodHelper Create(Type objectType)
@@ -38,17 +38,17 @@ public class ObjectMethodHelper
 		return new ObjectMethodHelper(objectType);
 	}
 
-	private MethodDelegate CreateMethodHelpers<TResult>(string methodName, Type[] parameters)
+	private MethodHelper CreateMethodHelpers(string methodName, Type[] parameters)
 	{
 		var methodKey = $"{methodName}({string.Join<Type>(", ", parameters)})";
 
-		if (!_methodDelgates.ContainsKey(methodKey))
+		if (!_methods.ContainsKey(methodKey))
 		{
-			var helper = new MethodHelper<TResult>(_objectType, methodName, parameters);
+			var helper = new MethodHelper(_objectType, methodName, parameters);
 
-			_methodDelgates.Add(methodKey, new(helper.Invoker));
+			_methods.Add(methodKey, helper);
 		}
 
-		return _methodDelgates[methodKey];
+		return _methods[methodKey];
 	}
 }
