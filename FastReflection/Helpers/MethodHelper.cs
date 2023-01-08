@@ -8,10 +8,10 @@ public class MethodHelper
 	private const string InvalidDelegateErrorMessage = "Method '{0}' cannot be activated for value of '{1}' type.";
 
 	private const string InvalidMethodErrorMessage =
-		"Method '{0}' of type '{1}' could not be found or it's nor public or declared method.";
+		"Method '{0}' of type '{1}' could not be found, or it's not public or declared.";
 
 	private const string UnsupportedParameterCountErrorMessage =
-		"Method with '{0}' parameters is unsupported";
+		"Method with '{0}' parameters is unsupported.";
 
 	private static readonly MethodInfo _parameterlessCallInvokerOpenGenericMethod =
 		typeof(MethodHelper).GetTypeInfo().GetDeclaredMethod(nameof(ParameterlessCallInvoker))!;

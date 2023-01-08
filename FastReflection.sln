@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastReflection", "FastReflection\FastReflection.csproj", "{59181B60-C68A-4682-BE2E-B7AE9B7E2FEB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastReflection", "FastReflection\FastReflection.csproj", "{59181B60-C68A-4682-BE2E-B7AE9B7E2FEB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastReflection.Benchmarks", "FastReflection.Benchmarks\FastReflection.Benchmarks.csproj", "{5090B142-8ECE-4C3F-A5E6-C670E0825072}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastReflection.Benchmarks", "FastReflection.Benchmarks\FastReflection.Benchmarks.csproj", "{5090B142-8ECE-4C3F-A5E6-C670E0825072}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastReflection.UnitTests", "FastReflection.UnitTests\FastReflection.UnitTests.csproj", "{BBADD714-46E0-466B-983F-17BCB5431DF1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{5090B142-8ECE-4C3F-A5E6-C670E0825072}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5090B142-8ECE-4C3F-A5E6-C670E0825072}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5090B142-8ECE-4C3F-A5E6-C670E0825072}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BBADD714-46E0-466B-983F-17BCB5431DF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBADD714-46E0-466B-983F-17BCB5431DF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBADD714-46E0-466B-983F-17BCB5431DF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBADD714-46E0-466B-983F-17BCB5431DF1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
