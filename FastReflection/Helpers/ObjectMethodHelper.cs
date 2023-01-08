@@ -12,6 +12,11 @@ public class ObjectMethodHelper
 		_objectType = objectType;
 	}
 
+	public static ObjectMethodHelper Create(Type objectType)
+	{
+		return new ObjectMethodHelper(objectType);
+	}
+
 	public ParameterlessMethodInvoker GetParameterlessInvoker(string methodName)
 	{
 		var helper = CreateMethodHelpers(methodName, Array.Empty<Type>());
@@ -31,11 +36,6 @@ public class ObjectMethodHelper
 		var helper = CreateMethodHelpers(methodName, new[] { arg1, arg2 });
 
 		return (TwoParameterMethodInvoker)helper.Invoker;
-	}
-
-	public static ObjectMethodHelper Create(Type objectType)
-	{
-		return new ObjectMethodHelper(objectType);
 	}
 
 	private MethodHelper CreateMethodHelpers(string methodName, Type[] parameters)

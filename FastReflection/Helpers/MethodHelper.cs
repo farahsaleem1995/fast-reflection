@@ -5,18 +5,21 @@ namespace FastReflection.Helpers;
 
 public class MethodHelper
 {
-	public const string InvalidDelegateErrorMessage = "Method '{0}' cannot be activated for value of '{1}' type.";
+	private const string InvalidDelegateErrorMessage = "Method '{0}' cannot be activated for value of '{1}' type.";
 
 	private const string InvalidMethodErrorMessage =
-		"Method '{0}' of type'{1}' could not be found or it's nor public or declared method.";
+		"Method '{0}' of type '{1}' could not be found or it's nor public or declared method.";
 
-	private static readonly MethodInfo _noParameCallInvokerOpenGenericMethod =
+	private const string UnsupportedParameterCountErrorMessage =
+		"Method with '{0}' parameters is unsupported";
+
+	private static readonly MethodInfo _parameterlessCallInvokerOpenGenericMethod =
 		typeof(MethodHelper).GetTypeInfo().GetDeclaredMethod(nameof(ParameterlessCallInvoker))!;
 
-	private static readonly MethodInfo _oneParameCallInvokerOpenGenericMethod =
+	private static readonly MethodInfo _oneParameterCallInvokerOpenGenericMethod =
 		typeof(MethodHelper).GetTypeInfo().GetDeclaredMethod(nameof(OneParamCallInvoker))!;
 
-	private static readonly MethodInfo _twoParameCallInvokerOpenGenericMethod =
+	private static readonly MethodInfo _twoParameterCallInvokerOpenGenericMethod =
 		typeof(MethodHelper).GetTypeInfo().GetDeclaredMethod(nameof(TwoParamCallInvoker))!;
 
 	private readonly Type _declaringType;
@@ -39,7 +42,7 @@ public class MethodHelper
 			{
 				var methodInfo = GetMethodInfo(_declaringType, _methodName, _parameters);
 
-				_methodDelegate = MakeFastMethodInvoker(methodInfo);
+				_methodDelegate = MakeFastMethodInvoker(methodInfo, _parameters);
 			}
 
 			return _methodDelegate;
@@ -63,37 +66,47 @@ public class MethodHelper
 		return methodInfo;
 	}
 
-	private static Delegate MakeFastMethodInvoker(MethodInfo methodInfo)
+	private static Delegate MakeFastMethodInvoker(MethodInfo methodInfo, Type[] parameters)
 	{
-		return methodInfo.GetParameters().Length switch
+		var settings = Settings.GetByParameterCount(parameters.Length);
+
+		try
 		{
-			0 => MakeFastParameterlessMethodInvoker(methodInfo),
-			1 => MakeFastOneParameterMethodInvoker(methodInfo),
-			2 => MakeFastTwoParameterMethodInvoker(methodInfo),
-			_ => throw new InvalidOperationException(),
-		};
+			return TryMakeFastMethodInvoker(methodInfo, settings);
+		}
+		catch (Exception e)
+		{
+			throw new InvalidOperationException(
+				string.Format(InvalidDelegateErrorMessage, methodInfo.Name, settings.DelegateType), e);
+		}
 	}
 
-	private static ParameterlessMethodInvoker MakeFastParameterlessMethodInvoker(MethodInfo methodInfo)
+	private static Delegate TryMakeFastMethodInvoker(MethodInfo methodInfo, Settings settings)
 	{
-		return TryMakeFastInvoker(methodInfo, () => TryMakeFastParameterlessMethodInvoker(methodInfo));
-	}
-
-	private static ParameterlessMethodInvoker TryMakeFastParameterlessMethodInvoker(MethodInfo methodInfo)
-	{
-		var typeInput = methodInfo.DeclaringType!;
-		var typeOutput = methodInfo.ReturnType;
-
-		var invokerDelegateType = typeof(Func<,>).MakeGenericType(typeInput, typeOutput);
+		var invokerDelegateGenericTypeArgs = GetMethodDelegateGenericTypeArguments(methodInfo);
+		var invokerDelegateType = settings.DelegateType.MakeGenericType(invokerDelegateGenericTypeArgs);
 		var invokerDelegate = methodInfo.CreateDelegate(invokerDelegateType);
 
-		var callInvokerClosedGenericMethod = _noParameCallInvokerOpenGenericMethod
-			.MakeGenericMethod(typeInput, typeOutput);
+		var callInvokerClosedGenericMethod = settings.CallMethod
+			.MakeGenericMethod(invokerDelegateGenericTypeArgs);
 
-		var callInvokerDelegate = callInvokerClosedGenericMethod.CreateDelegate(
-			typeof(ParameterlessMethodInvoker), invokerDelegate);
+		var callInvokerDelegate = callInvokerClosedGenericMethod
+			.CreateDelegate(settings.CallDelegateType, invokerDelegate);
 
-		return (ParameterlessMethodInvoker)callInvokerDelegate;
+		return callInvokerDelegate;
+	}
+
+	private static Type[] GetMethodDelegateGenericTypeArguments(MethodInfo methodInfo)
+	{
+		var declaringType = methodInfo.DeclaringType!;
+		var returnType = methodInfo.ReturnType;
+		var parameters = methodInfo.GetParameters().Select(p => p.ParameterType).ToArray();
+
+		var genericArgs = new List<Type>() { declaringType };
+		genericArgs.AddRange(parameters);
+		genericArgs.Add(returnType);
+
+		return genericArgs.ToArray();
 	}
 
 	private static object ParameterlessCallInvoker<TDecalringType, TReturnType>(
@@ -102,57 +115,10 @@ public class MethodHelper
 		return deleg((TDecalringType)target)!;
 	}
 
-	private static OneParameterMethodInvoker MakeFastOneParameterMethodInvoker(MethodInfo methodInfo)
-	{
-		return TryMakeFastInvoker(methodInfo, () => TryMakeFastOneParameterMethodInvoker(methodInfo));
-	}
-
-	private static OneParameterMethodInvoker TryMakeFastOneParameterMethodInvoker(MethodInfo methodInfo)
-	{
-		var typeInput1 = methodInfo.DeclaringType!;
-		var typeInput2 = methodInfo.GetParameters()[0].ParameterType!;
-		var typeOutput = methodInfo.ReturnType;
-
-		var invokerDelegateType = typeof(Func<,,>).MakeGenericType(typeInput1, typeInput2, typeOutput);
-		var invokerDelegate = methodInfo.CreateDelegate(invokerDelegateType);
-
-		var callInvokerClosedGenericMethod = _oneParameCallInvokerOpenGenericMethod
-			.MakeGenericMethod(typeInput1, typeInput2, typeOutput);
-
-		var callInvokerDelegate = callInvokerClosedGenericMethod.CreateDelegate(
-			typeof(OneParameterMethodInvoker), invokerDelegate);
-
-		return (OneParameterMethodInvoker)callInvokerDelegate;
-	}
-
 	private static object OneParamCallInvoker<TDecalringType, TArg1, TReturnType>(
 		Func<TDecalringType, TArg1, TReturnType> deleg, object target, object arg1)
 	{
 		return deleg((TDecalringType)target, (TArg1)arg1)!;
-	}
-
-	private static TwoParameterMethodInvoker MakeFastTwoParameterMethodInvoker(MethodInfo methodInfo)
-	{
-		return TryMakeFastInvoker(methodInfo, () => TryMakeFastTwoParameterMethodInvoker(methodInfo));
-	}
-
-	private static TwoParameterMethodInvoker TryMakeFastTwoParameterMethodInvoker(MethodInfo methodInfo)
-	{
-		var typeInput1 = methodInfo.DeclaringType!;
-		var typeInput2 = methodInfo.GetParameters()[0].ParameterType!;
-		var typeInput3 = methodInfo.GetParameters()[1].ParameterType!;
-		var typeOutput = methodInfo.ReturnType;
-
-		var invokerDelegateType = typeof(Func<,,,>).MakeGenericType(typeInput1, typeInput2, typeInput3, typeOutput);
-		var invokerDelegate = methodInfo.CreateDelegate(invokerDelegateType);
-
-		var callInvokerClosedGenericMethod = _twoParameCallInvokerOpenGenericMethod
-			.MakeGenericMethod(typeInput1, typeInput2, typeInput3, typeOutput);
-
-		var callInvokerDelegate = callInvokerClosedGenericMethod.CreateDelegate(
-			typeof(TwoParameterMethodInvoker), invokerDelegate);
-
-		return (TwoParameterMethodInvoker)callInvokerDelegate;
 	}
 
 	private static object TwoParamCallInvoker<TDecalringType, TArg1, TArg2, TReturnType>(
@@ -161,16 +127,37 @@ public class MethodHelper
 		return deleg((TDecalringType)target, (TArg1)arg1, (TArg2)arg2)!;
 	}
 
-	private static TInvoker TryMakeFastInvoker<TInvoker>(MethodInfo methodInfo, Func<TInvoker> func)
+	private class Settings
 	{
-		try
+		private Settings(Type delegateType, MethodInfo callMethod, Type callDelegateType)
 		{
-			return func();
+			DelegateType = delegateType;
+			CallMethod = callMethod;
+			CallDelegateType = callDelegateType;
 		}
-		catch (Exception e)
+
+		public static Settings GetByParameterCount(int parameterCount)
 		{
-			throw new InvalidOperationException(
-				string.Format(InvalidDelegateErrorMessage, methodInfo.Name, typeof(TInvoker)), e);
+			return parameterCount switch
+			{
+				0 => new Settings(typeof(Func<,>), _parameterlessCallInvokerOpenGenericMethod,
+					typeof(ParameterlessMethodInvoker)),
+
+				1 => new Settings(typeof(Func<,,>), _oneParameterCallInvokerOpenGenericMethod,
+					typeof(OneParameterMethodInvoker)),
+
+				2 => new Settings(typeof(Func<,,,>), _twoParameterCallInvokerOpenGenericMethod,
+					typeof(TwoParameterMethodInvoker)),
+
+				_ => throw new InvalidOperationException(
+					string.Format(UnsupportedParameterCountErrorMessage, parameterCount)),
+			};
 		}
+
+		public Type DelegateType { get; }
+
+		public MethodInfo CallMethod { get; }
+
+		public Type CallDelegateType { get; }
 	}
 }
